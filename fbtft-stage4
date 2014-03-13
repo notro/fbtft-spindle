@@ -1,0 +1,53 @@
+#!/bin/bash
+
+#
+# Compare the original image with the new base image
+#
+
+set -ex
+
+. ./common
+
+WORKDIR=work
+OUTDIR=out
+
+PREVIMG=../$OUTDIR/fbtft-stage2.$IMGFORMAT
+BASEIMG=$(cat $WORKDIR/fbtft-base-img-name)
+
+sudo -v
+
+cd work
+
+mkdir -p base_boot base_rootfs
+
+
+# Mount current image
+attach_image_to_nbd $PREVIMG /dev/nbd0
+sudo mount $BOOT_DEV boot
+sudo mount $ROOT_DEV rootfs
+
+# Mount base image
+attach_image_to_nbd $BASEIMG /dev/nbd1
+sudo mount /dev/nbd1p1 base_boot
+sudo mount /dev/nbd1p2 base_rootfs
+
+
+sudo ../../cmptree base_boot boot | tee cmp_boot.txt
+echo
+sudo ../../cmptree base_rootfs rootfs | tee cmp_rootfs.txt
+
+
+# Unmount base image
+sudo umount /dev/nbd1p1
+sudo umount /dev/nbd1p2
+detach_image_from_nbd /dev/nbd1
+
+# Unmount current image
+sudo umount $BOOT_DEV
+sudo umount $ROOT_DEV
+detach_image_from_nbd /dev/nbd0
+
+
+CLEANED_UP=1
+FINISHED_SUCCESSFULLY=1
+printf "Completed script successfully\n"

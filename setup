@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -e
+
+# Tested on Ubuntu 12.04
+
+if [ $(id -u) -eq 0 ]; then
+  printf "Script must NOT be run as root\n"
+  exit 1
+fi
+
+cd $(dirname "$0")
+
+echo Loading nbd module...
+sudo modprobe nbd max_part=16
+echo
+
+[ -e spindle ] && printf "Already setup\n" && exit 1
+
+
+printf "Get https://github.com/asb/spindle\n"
+git clone https://github.com/asb/spindle
+cd spindle
+
+printf "\nPatch setup_spindle_environment: debootstrap: add --no-check-gpg argument\n"
+git apply ../setup_spindle_environment.patch
+
+printf "\n\nsetup_spindle_environment\n\n"
+sudo ./setup_spindle_environment  fbtft_spindle_chroot

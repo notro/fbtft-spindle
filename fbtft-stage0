@@ -1,0 +1,60 @@
+#!/bin/sh
+
+
+show_usage() {
+	printf "missing argument: image date\n"
+	exit 1
+}
+
+[ "$1" ] || show_usage
+DATE=$2
+[ "$2" ] || DATE=$(date +'%Y-%m-%d')
+
+set -ex
+
+. ./common
+
+WORKDIR=work
+OUTDIR=out
+
+ZIPIMG=$(readlink --canonicalize $1)
+PREVIMG=$(basename $1 .zip).img
+CURIMG=fbtft-stage0.$IMGFORMAT
+
+cd $WORKDIR
+
+sudo -v
+
+
+echo $PREVIMG > fbtft-base-img-name
+echo $(basename $1 .zip)-$DATE-fbtft > fbtft-img-name
+
+
+[ -f "$PREVIMG" ] || unzip $ZIPIMG
+chmod -w $PREVIMG
+
+
+[ -f "$CURIMG" ] && rm $CURIMG
+qemu-img convert -f raw -O $IMGFORMAT $PREVIMG $CURIMG
+
+attach_image_to_nbd $CURIMG /dev/nbd0
+sudo mount $BOOT_DEV boot
+sudo mount $ROOT_DEV rootfs
+
+
+sudo mv rootfs/etc/ld.so.preload rootfs/etc/ld.so.preload.disable
+sudo rm rootfs/etc/profile.d/raspi-config.sh
+
+CUR_ISSUE=$(cat rootfs/etc/rpi-issue)
+cat <<EOF | sudo tee rootfs/etc/rpi-issue
+FBTFT image reference $DATE
+$CUR_ISSUE
+EOF
+sudo cp rootfs/etc/rpi-issue boot/issue.txt
+
+
+sudo umount $BOOT_DEV
+sudo umount $ROOT_DEV
+detach_image_from_nbd /dev/nbd0
+
+dotask finish_image

@@ -1,0 +1,236 @@
+#!/bin/sh
+
+
+set -ex
+
+. ./common
+
+WORKDIR=work
+OUTDIR=out
+PREVIMG=../$OUTDIR/fbtft-stage0.$IMGFORMAT
+CURIMG=fbtft-stage1.$IMGFORMAT
+
+install_packages() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+apt-get update
+
+apt-get install -y \
+evtest \
+xinput \
+python-pip
+
+# Disable this package as it contains a kernel, and thus removes the FBTFT drivers
+apt-mark hold raspberrypi-bootloader
+
+EOC
+}
+
+install_tslib() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+apt-get install -y tslib libts-bin
+
+# install ts_test with Quit button
+sudo wget -O /usr/bin/ts_test http://tronnes.org/downloads/ts_test && sudo chmod +x /usr/bin/ts_test
+
+EOC
+}
+
+install_xinput_calibrator() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+cd /tmp
+wget http://adafruit-download.s3.amazonaws.com/xinput-calibrator_0.7.5-1_armhf.deb
+sudo dpkg -i -B xinput-calibrator_0.7.5-1_armhf.deb
+
+# ?? /etc/X11/xorg.conf.d/99-calibration.conf
+
+EOC
+}
+
+install_wiringpi() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+cd /tmp
+wget https://github.com/hamishcunningham/wiringpi/raw/master/package/2.13/unstable/wiringpi_2.13_armhf.deb
+sudo dpkg -i wiringpi_2.13_armhf.deb
+
+EOC
+}
+
+install_fbcp() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+apt-get install -y cmake
+cd /tmp
+git clone https://github.com/tasanakorn/rpi-fbcp
+mkdir -p rpi-fbcp/build && cd rpi-fbcp/build
+cmake .. && make
+sudo install fbcp /usr/local/bin/fbcp
+
+cat <<\EOF | sudo tee /etc/init.d/fbcp
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          fbcp
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Framebuffer copy daemon fb0->fb1
+### END INIT INFO
+
+# Author: Noralf Tronnes <notro@tronnes.org>
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="Framebuffer copy daemon"
+NAME=fbcp
+DAEMON=/usr/local/bin/fbcp
+DAEMON_ARGS=""
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x $DAEMON ] || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+        # Return
+        #   0 if daemon has been started
+        #   1 if daemon was already running
+        #   2 if daemon could not be started
+        start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+                || return 1
+        start-stop-daemon --start --quiet --background --make-pidfile --pidfile $PIDFILE --exec $DAEMON -- \
+                $DAEMON_ARGS \
+                || return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+        # Return
+        #   0 if daemon has been stopped
+        #   1 if daemon was already stopped
+        #   2 if daemon could not be stopped
+        #   other if a failure occurred
+        start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+        RETVAL="$?"
+        [ "$RETVAL" = 2 ] && return 2
+        rm -f $PIDFILE
+        return "$RETVAL"
+}
+
+case "$1" in
+  start)
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
+    do_start
+    case "$?" in
+                0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+                2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+        esac
+  ;;
+  stop)
+        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+        do_stop
+        case "$?" in
+                0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+                2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+        esac
+        ;;
+  status)
+       status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+       ;;
+  restart|reload|force-reload)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+        do_stop
+        case "$?" in
+          0|1)
+                do_start
+                case "$?" in
+                        0) log_end_msg 0 ;;
+                        1) log_end_msg 1 ;; # Old process is still running
+                        *) log_end_msg 1 ;; # Failed to start
+                esac
+                ;;
+          *)
+                # Failed to stop
+                log_end_msg 1
+                ;;
+        esac
+        ;;
+  *)
+        echo "Usage: $SCRIPTNAME {start|stop|status|restart|reload|force-reload}" >&2
+        exit 3
+        ;;
+esac
+
+:
+EOF
+
+sudo chmod +x /etc/init.d/fbcp
+
+EOC
+}
+
+
+update_rpi_update() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo wget https://raw.github.com/Hexxeh/rpi-update/master/rpi-update -O /usr/bin/rpi-update && sudo chmod +x /usr/bin/rpi-update
+
+EOC
+}
+
+
+install_cleanup() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo rm -rf /tmp/*
+apt-get clean && apt-get autoremove 
+
+EOC
+}
+
+
+
+
+
+cd $WORKDIR
+
+sudo -v
+
+dotask branch_image $PREVIMG $CURIMG
+dotask run_qemu $CURIMG
+dotask disable_starting_services
+
+#dotask mount_apt_cache
+
+
+
+
+dotask install_packages
+dotask install_tslib
+dotask install_xinput_calibrator
+dotask install_wiringpi
+dotask install_fbcp
+dotask update_rpi_update
+
+dotask install_cleanup
+
+
+
+
+#dotask save_space_using_hardlink
+dotask allow_starting_services
+#dotask fingerprint_debian
+#dotask update_issue
+dotask shutdown_qemu
+dotask finish_image

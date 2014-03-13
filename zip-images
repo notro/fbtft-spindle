@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -e
+
+rm -rf zip
+mkdir zip
+
+cd spindle/out
+
+find *.img | while read filename; do zip $(basename $filename .img).zip $filename; echo; done
+
+mv -v *.zip ../../zip/

@@ -1,0 +1,228 @@
+#!/bin/sh
+
+
+set -ex
+
+. ./common
+
+WORKDIR=work
+OUTDIR=out
+PREVIMG=../$OUTDIR/fbtft-stage1.$IMGFORMAT
+CURIMG=fbtft-stage2.$IMGFORMAT
+
+
+
+env_profiles_d() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<EOC
+cat <<EOF | sudo tee /etc/profile.d/$1
+$2
+EOF
+
+EOC
+}
+
+env_sudoers_d() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<EOC
+cat <<EOF | sudo tee /etc/sudoers.d/$1
+Defaults env_keep += "$2"
+
+EOF
+
+sudo chmod 0440 /etc/sudoers.d/$1
+
+EOC
+}
+
+touch_calibration_startup_script() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo wget -O /etc/X11/Xsession.d/xinput_calibrator_pointercal https://raw.github.com/tias/xinput_calibrator/master/scripts/xinput_calibrator_pointercal.sh
+
+cat <<EOF | sudo tee -a /etc/xdg/lxsession/LXDE/autostart
+sudo /bin/sh /etc/X11/Xsession.d/xinput_calibrator_pointercal
+EOF
+
+EOC
+}
+
+
+firstboot_rc_local() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo mv /etc/rc.local /etc/rc.local.wait
+
+cat <<EOF | sudo tee /etc/rc.local
+#!/bin/sh -e
+rm -f /etc/rc.local
+mv /etc/rc.local.wait /etc/rc.local
+
+[ -f /boot/firstboot.sh ] && /boot/firstboot.sh
+
+EOF
+sudo chmod +x /etc/rc.local
+
+EOC
+}
+
+
+disable_spi_blacklisting() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo sed -i /etc/modprobe.d/raspi-blacklist.conf -e "s/^blacklist[[:space:]]*spi-bcm2708.*/#blacklist spi-bcm2708/"
+
+EOC
+}
+
+use_fb1_xorg_conf() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo sed -i /usr/share/X11/xorg.conf.d/99-fbturbo.conf -e "s/fb0/fb1/"
+
+EOC
+}
+
+swapaxes_calibration() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo mkdir -p /etc/X11/xorg.conf.d/
+
+cat <<EOF | sudo tee /etc/X11/xorg.conf.d/99-calibration.conf
+Section "InputClass"
+        Identifier      "calibration"
+        MatchProduct    "ADS7846 Touchscreen"
+        Option  "SwapAxes"      "1"
+EndSection
+
+Section "InputClass"
+        Identifier      "calibration"
+        MatchProduct    "stmpe-ts"
+        Option  "SwapAxes"      "1"
+EndSection
+EOF
+
+EOC
+}
+
+disable_autologin() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo sed -i /etc/inittab \
+  -e "s/^#\(.*\)#\s*RPICFG_TO_ENABLE\s*/\1/" \
+  -e "/#\s*RPICFG_TO_DISABLE/d"
+
+EOC
+}
+
+udev_rules() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+cat <<EOF | sudo tee /etc/udev/rules.d/95-ads7846.rules
+SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="ADS7846*", SYMLINK+="input/touchscreen"
+EOF
+
+cat <<EOF | sudo tee /etc/udev/rules.d/95-stmpe.rules
+SUBSYSTEM=="input", ATTRS{name}=="stmpe-ts", ENV{DEVNAME}=="*event*", SYMLINK+="input/touchscreen" 
+EOF
+
+EOC
+}
+
+install_adapiluv_theme() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+sudo sh -c "mkdir /usr/share/plymouth/themes/adapiluv && curl -L https://github.com/notro/adapiluv/tarball/master | tar xz --strip 1 -C /usr/share/plymouth/themes/adapiluv"
+
+EOC
+}
+
+
+cd $WORKDIR
+
+sudo -v
+
+dotask branch_image $PREVIMG $CURIMG
+dotask run_qemu $CURIMG
+dotask disable_starting_services
+
+#dotask mount_apt_cache
+
+#
+# rpi-update environment variables
+#   values are set in the kernel build stage
+#
+dotask env_sudoers_d rpi-update "REPO_URI BRANCH"
+
+#
+# FRAMEBUFFER environment variable
+#
+dotask env_profiles_d framebuffer.sh 'export FRAMEBUFFER=/dev/fb1'
+env_sudoers_d framebuffer FRAMEBUFFER
+
+#
+# tslib environment variables
+#
+dotask env_profiles_d tslib.sh \
+'export TSLIB_TSDEVICE=/dev/input/touchscreen
+export TSLIB_FBDEVICE=/dev/fb1'
+
+env_sudoers_d tslib "TSLIB_TSDEVICE TSLIB_FBDEVICE"
+
+#
+# SDL environment variables
+#
+dotask env_profiles_d sdl.sh \
+'export SDL_VIDEODRIVER=fbcon
+export SDL_FBDEV=/dev/fb1
+export SDL_MOUSEDRV=TSLIB
+export SDL_MOUSEDEV=/dev/input/touchscreen'
+
+dotask env_sudoers_d sdl "SDL_VIDEODRIVER SDL_FBDEV SDL_MOUSEDRV SDL_MOUSEDEV"
+
+touch_calibration_startup_script
+
+dotask firstboot_rc_local
+
+dotask disable_spi_blacklisting
+
+dotask use_fb1_xorg_conf
+
+dotask swapaxes_calibration
+
+dotask disable_autologin
+
+dotask udev_rules
+
+dotask install_adapiluv_theme
+
+#dotask save_space_using_hardlink
+dotask allow_starting_services
+#dotask fingerprint_debian
+#dotask update_issue
+dotask shutdown_qemu
+
+
+
+#
+# add /boot/firstbootscript.sh
+#    expand filesystem on first boot
+#
+
+attach_image_to_nbd $CURIMG /dev/nbd0
+sudo mount $BOOT_DEV boot
+
+cat <<EOF | sudo tee boot/firstboot.sh
+#!/bin/sh
+
+# This script is run only on first boot
+# Rename or delete to disable
+
+echo Running firstboot.sh > /dev/kmsg
+
+printf "\n\nExpanding filesystem...\n\n"
+raspi-config --expand-rootfs
+sync
+reboot
+
+EOF
+
+sudo umount $BOOT_DEV
+detach_image_from_nbd /dev/nbd0
+
+
+
+
+
+
+dotask finish_image
