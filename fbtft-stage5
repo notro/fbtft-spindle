@@ -141,7 +141,7 @@ make_image builtin rpi-display-rev2 \
 
 make_image builtin pitft \
 	"fbtft_device.name=pitft fbtft_device.rotate=90 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"stmpe_device cs=1 chip=stmpe610 blocks=gpio,ts irq-pullup irq-gpio=24 irq-base=330 sample-time=4 mod-12b=1 ref-sel=0 adc-freq=2 ave-ctrl=3 touch-det-delay=4 settling=2 fraction-z=7 i-drive=0\ngpio_backlight_device gpio=252"
+	"stmpe_device cs=1 chip=stmpe610 blocks=gpio,ts irq-pullup irq-gpio=24 irq-base=330 sample-time=4 mod-12b=1 ref-sel=0 adc-freq=2 ave-ctrl=3 touch-det-delay=4 settling=2 fraction-z=7 i-drive=0\ngpio_backlight_device gpio=252\n#rpi-power-switch gpio_pin=22"
 
 
 
