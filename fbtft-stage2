@@ -147,8 +147,8 @@ dotask env_sudoers_d rpi-update "REPO_URI BRANCH"
 #
 # FRAMEBUFFER environment variable
 #
-dotask env_profiles_d framebuffer.sh 'export FRAMEBUFFER=/dev/fb1'
-env_sudoers_d framebuffer FRAMEBUFFER
+#dotask env_profiles_d framebuffer.sh 'export FRAMEBUFFER=/dev/fb1'
+#env_sudoers_d framebuffer FRAMEBUFFER
 
 #
 # tslib environment variables
