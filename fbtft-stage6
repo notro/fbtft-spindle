@@ -1,0 +1,92 @@
+#!/bin/sh
+
+set -ex
+
+. ./common
+
+WORKDIR=work
+OUTDIR=out
+
+
+move_image() {
+  mkdir -p ../$OUTDIR &&
+  mv -f $CURIMG ../$OUTDIR
+}
+
+
+make_image() {
+  PREVIMG=../$OUTDIR/$(cat fbtft-img-name)-$1-firmware.img
+  CURIMG=$(cat fbtft-img-name)-$2.img
+  set +x
+  echo
+  echo "----------------------------------------------------------------------"
+  echo "Make image: $CURIMG"
+  echo
+  echo Branch: $1
+  echo Shield: $2
+  echo
+  echo Add to kernel command line:
+  echo $3
+  echo
+  echo Add to /etc/modules:
+  echo $4
+  echo
+  echo
+  set -x
+
+  cp $PREVIMG $CURIMG
+
+  attach_image_to_nbd $CURIMG /dev/nbd0
+  sudo mount $BOOT_DEV boot
+  sudo mount $ROOT_DEV rootfs
+
+  curr=$(cat boot/cmdline.txt)
+  echo "${curr} ${3}" | sudo tee boot/cmdline.txt
+
+  /bin/echo -e $4 | sudo tee -a rootfs/etc/modules
+
+  sudo umount $BOOT_DEV
+  sudo umount $ROOT_DEV
+  detach_image_from_nbd /dev/nbd0
+
+  move_image
+}
+
+
+cd $WORKDIR
+sudo -v
+
+make_image builtin hy28a \
+	"fbtft_device.name=hy28a fbtft_device.rotate=270 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"ads7846_device gpio_pendown=17 x_plate_ohms=100 pressure_max=255"
+
+make_image builtin hy28b \
+	"fbtft_device.name=hy28b fbtft_device.rotate=90 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"ads7846_device gpio_pendown=17 x_plate_ohms=100 pressure_max=255"
+
+make_image builtin tinylcd35 \
+	"fbtft_device.name=tinylcd35 fbtft_device.rotate=270 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"gpio_mouse_device pulldown polarity=0 up=17 down=22 left=27 right=23 bleft=4"
+
+make_image builtin rpi-display-rev1 \
+	"fbtft_device.name=mi0283qt-9a fbtft_device.rotate=270 fbtft_device.gpios=reset:23,led:18 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"ads7846_device model=7846 cs=1 speed=2000000 gpio_pendown=25 pressure_max=255 x_plate_ohms=60"
+
+make_image builtin rpi-display-rev2 \
+	"fbtft_device.name=rpi-display fbtft_device.rotate=270 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"ads7846_device model=7846 cs=1 speed=2000000 gpio_pendown=25 pressure_max=255 x_plate_ohms=60"
+
+make_image builtin pitft \
+	"fbtft_device.name=pitft fbtft_device.rotate=90 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"stmpe_device cs=1 chip=stmpe610 blocks=gpio,ts irq-pullup irq-gpio=24 irq-base=330 sample-time=4 mod-12b=1 ref-sel=0 adc-freq=2 ave-ctrl=3 touch-det-delay=4 settling=2 fraction-z=7 i-drive=0\ngpio_backlight_device gpio=252\n#rpi-power-switch gpio_pin=22"
+
+make_image builtin piscreen \
+	"fbtft_device.name=piscreen fbtft_device.rotate=90 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
+	"ads7846_device gpio_pendown=17 x_plate_ohms=100 pressure_max=255"
+
+
+
+
+CLEANED_UP=1
+FINISHED_SUCCESSFULLY=1
+printf "Completed script successfully\n"

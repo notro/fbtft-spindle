@@ -10,16 +10,12 @@ OUTDIR=out
 PREVIMG=../$OUTDIR/fbtft-stage2.$IMGFORMAT
 
 move_image() {
-#  chmod -w $CURIMG &&
-  mkdir -p ../$OUTDIR &&
+  mkdir -p ../$OUTDIR
   mv -f $CURIMG ../$OUTDIR
 }
 
 
 install_kernel() {
-#  dotask branch_image $PREVIMG kernel-$1.$IMGFORMAT
-#  dotask run_qemu kernel-$1.$IMGFORMAT
-
   CURIMG=$(cat fbtft-img-name)-$1-firmware.img
   convert_image $PREVIMG $CURIMG
   dotask run_qemu $CURIMG
@@ -36,12 +32,10 @@ export BRANCH=$1
 EOF
 
 sudo rm -rf /lib/modules/*
-sudo BRANCH=$1 UPDATE_SELF=0 WORK_PATH=/mnt REPO_URI=https://github.com/notro/rpi-firmware /usr/bin/rpi-update
+sudo BRANCH=$1 UPDATE_SELF=0 SKIP_BACKUP=1 WORK_PATH=/mnt REPO_URI=https://github.com/notro/rpi-firmware /usr/bin/rpi-update
 
-# /boot/.firmware_revision and /root/.rpi-firmware/bootcode.bin is needed to determine if a update is needed
+# /boot/.firmware_revision and /root/.rpi-firmware/bootcode.bin is used to determine if a (rpi-)update is needed
 sudo mkdir /root/.rpi-firmware && sudo touch /root/.rpi-firmware/bootcode.bin
-# needed to install kernel sources
-sudo cp -a /mnt/.rpi-firmware/extra /root/.rpi-firmware/
 
 sudo rm -rf /boot.bak /lib/modules.bak /mnt/.rpi-firmware
 
@@ -50,8 +44,6 @@ EOC
   dotask allow_starting_services
   dotask shutdown_qemu
 
-
-#  attach_image_to_nbd kernel-$1.$IMGFORMAT /dev/nbd0
   attach_image_to_nbd $CURIMG /dev/nbd0
   sudo mount $BOOT_DEV boot
   sudo mount $ROOT_DEV rootfs
@@ -70,41 +62,6 @@ EOC
   detach_image_from_nbd /dev/nbd0
 
   move_image
-#  dotask finish_image
-
-}
-
-
-# make_image BRANCH SHIELD KCMD MOD
-make_image() {
-  PREVIMG=../$OUTDIR/$(cat fbtft-img-name)-$1-firmware.img
-  CURIMG=$(cat fbtft-img-name)-$2.img
-  echo
-  echo
-  echo Branch: $1
-  echo Shield: $2
-  echo Add to kernel command line:
-  echo $3
-  echo Add to /etc/modules:
-  echo $4
-
-#  convert_image kernel-$1.$IMGFORMAT $CURIMG
-  cp -v $PREVIMG $CURIMG
-
-  attach_image_to_nbd $CURIMG /dev/nbd0
-  sudo mount $BOOT_DEV boot
-  sudo mount $ROOT_DEV rootfs
-
-  curr=$(cat boot/cmdline.txt)
-  echo "${curr} ${3}" | sudo tee boot/cmdline.txt
-
-  /bin/echo -e $4 | sudo tee -a rootfs/etc/modules
-
-  sudo umount $BOOT_DEV
-  sudo umount $ROOT_DEV
-  detach_image_from_nbd /dev/nbd0
-
-  move_image
 }
 
 
@@ -114,39 +71,6 @@ sudo -v
 install_kernel master
 install_kernel builtin
 
-# not needed?
-# rename master to loadable?
-#make_image master loadable "" ""
-#make_image builtin built-in "fbtft_device.name=list fbtft_device.rotate=0 fbtft_device.debug=0 fbtft_device.verbose=0" ""
-
-make_image builtin hy28a \
-	"fbtft_device.name=hy28a fbtft_device.rotate=270 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"ads7846_device gpio_pendown=17 x_plate_ohms=100 pressure_max=255"
-
-make_image builtin hy28b \
-	"fbtft_device.name=hy28b fbtft_device.rotate=90 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"ads7846_device gpio_pendown=17 x_plate_ohms=100 pressure_max=255"
-
-make_image builtin tinylcd35 \
-	"fbtft_device.name=tinylcd35 fbtft_device.rotate=270 fbtft_device.speed=48000000 fbtft_device.fps=50 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"gpio_mouse_device pulldown polarity=0 up=17 down=22 left=27 right=23 bleft=4"
-
-make_image builtin rpi-display-rev1 \
-	"fbtft_device.name=mi0283qt-9a fbtft_device.rotate=270 fbtft_device.gpios=reset:23,led:18 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"ads7846_device model=7846 cs=1 speed=2000000 gpio_pendown=25 pressure_max=255 x_plate_ohms=60"
-
-make_image builtin rpi-display-rev2 \
-	"fbtft_device.name=rpi-display fbtft_device.rotate=270 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"ads7846_device model=7846 cs=1 speed=2000000 gpio_pendown=25 pressure_max=255 x_plate_ohms=60"
-
-make_image builtin pitft \
-	"fbtft_device.name=pitft fbtft_device.rotate=90 fbtft_device.debug=0 fbtft_device.verbose=0 fbcon=map:10 fbcon=font:ProFont6x11 logo.nologo" \
-	"stmpe_device cs=1 chip=stmpe610 blocks=gpio,ts irq-pullup irq-gpio=24 irq-base=330 sample-time=4 mod-12b=1 ref-sel=0 adc-freq=2 ave-ctrl=3 touch-det-delay=4 settling=2 fraction-z=7 i-drive=0\ngpio_backlight_device gpio=252\n#rpi-power-switch gpio_pin=22"
-
-
-
-
-#dotask finish_image
 CLEANED_UP=1
 FINISHED_SUCCESSFULLY=1
 printf "Completed script successfully\n"
