@@ -191,6 +191,73 @@ EOC
 }
 
 
+install_xstroke() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+
+sudo apt-get -y install libxft-dev libxpm-dev libxtst-dev
+wget http://mirror.egtvedt.no/avr32linux.org/twiki/pub/Main/XStroke/xstroke-0.6.tar.gz
+tar xfv xstroke-0.6.tar.gz
+cd xstroke-0.6/
+./configure
+make
+sudo make install
+cd ..
+rm -r xstroke*
+
+sudo wget http://www.ozzmaker.com/piscreen/xstrokekill.desktop -O /usr/share/applications/xstrokekill.desktop
+sudo wget http://www.ozzmaker.com/piscreen/xstroke.desktop -O /usr/share/applications/xstroke.desktop
+
+EOC
+}
+
+
+install_matchbox_keyboard() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+
+sudo apt-get install -y autoconf libtool libfakekey-dev libpng-dev
+
+git clone https://github.com/mwilliams03/matchbox-keyboard.git
+cd matchbox-keyboard
+./autogen.sh
+make
+sudo make install
+sudo apt-get install libmatchbox1 -y
+
+cd ..
+rm -rf matchbox-keyboard
+
+cat <<\EOF | sudo tee /usr/bin/toggle-matchbox-keyboard.sh
+#!/bin/bash
+#This script toggle the virtual keyboard
+
+PID=`pidof matchbox-keyboard`
+if [ ! -e $PID ]; then
+  killall matchbox-keyboard
+else
+ matchbox-keyboard&
+fi
+
+EOF
+sudo chmod +x /usr/bin/toggle-matchbox-keyboard.sh
+
+cat <<\EOF | sudo tee /usr/local/share/applications/toggle-matchbox-keyboard.desktop
+[Desktop Entry]
+Name=Toggle Matchbox Keyboard
+Comment=Toggle Matchbox Keyboard
+Exec=toggle-matchbox-keyboard.sh
+Type=Application
+Icon=matchbox-keyboard.png
+Categories=Panel;Utility;MB
+X-MB-INPUT-MECHANSIM=True
+
+EOF
+
+EOC
+}
+
+
+
+
 install_cleanup() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 sudo rm -rf /tmp/*
@@ -222,6 +289,10 @@ dotask install_xinput_calibrator
 dotask install_wiringpi
 dotask install_fbcp
 dotask update_rpi_update
+sudo -v
+dotask install_xstroke
+sudo -v
+dotask install_matchbox_keyboard
 
 dotask install_cleanup
 
