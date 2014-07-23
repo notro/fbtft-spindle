@@ -191,6 +191,17 @@ EOC
 }
 
 
+install_rpi_source() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+
+sudo wget https://raw.githubusercontent.com/notro/rpi-source/master/rpi-source -O /usr/bin/rpi-source
+sudo chmod +x /usr/bin/rpi-source
+HOME=/home/pi /usr/bin/rpi-source --tag-update
+
+EOC
+}
+
+
 install_xstroke() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 
@@ -289,6 +300,7 @@ dotask install_xinput_calibrator
 dotask install_wiringpi
 dotask install_fbcp
 dotask update_rpi_update
+dotask install_rpi_source
 sudo -v
 dotask install_xstroke
 sudo -v
