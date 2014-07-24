@@ -165,8 +165,11 @@ env_sudoers_d tslib "TSLIB_TSDEVICE TSLIB_FBDEVICE"
 dotask env_profiles_d sdl.sh \
 'export SDL_VIDEODRIVER=fbcon
 export SDL_FBDEV=/dev/fb1
-export SDL_MOUSEDRV=TSLIB
-export SDL_MOUSEDEV=/dev/input/touchscreen'
+if [[ -e /dev/input/touchscreen ]]; then
+	export SDL_MOUSEDRV=TSLIB
+	export SDL_MOUSEDEV=/dev/input/touchscreen
+fi
+'
 
 dotask env_sudoers_d sdl "SDL_VIDEODRIVER SDL_FBDEV SDL_MOUSEDRV SDL_MOUSEDEV"
 
