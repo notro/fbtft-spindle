@@ -208,14 +208,13 @@ install_xstroke() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 
 DEBIAN_FRONTEND=noninteractive apt-get -y install libxft-dev libxpm-dev libxtst-dev
+cd /tmp
 wget http://mirror.egtvedt.no/avr32linux.org/twiki/pub/Main/XStroke/xstroke-0.6.tar.gz
 tar xfv xstroke-0.6.tar.gz
 cd xstroke-0.6/
 ./configure
 make
 make install
-cd ..
-rm -r xstroke*
 
 wget http://www.ozzmaker.com/piscreen/xstrokekill.desktop -O /usr/share/applications/xstrokekill.desktop
 wget http://www.ozzmaker.com/piscreen/xstroke.desktop -O /usr/share/applications/xstroke.desktop
@@ -229,15 +228,13 @@ install_matchbox_keyboard() {
 
 DEBIAN_FRONTEND=noninteractive apt-get install -y autoconf libtool libfakekey-dev libpng-dev
 
+cd /tmp
 git clone https://github.com/mwilliams03/matchbox-keyboard.git
 cd matchbox-keyboard
 ./autogen.sh
 make
 make install
 DEBIAN_FRONTEND=noninteractive apt-get install libmatchbox1 -y
-
-cd ..
-rm -rf matchbox-keyboard
 
 cat <<\EOF | tee /usr/bin/toggle-matchbox-keyboard.sh
 #!/bin/bash
