@@ -14,7 +14,7 @@ CURIMG=fbtft-stage2.$IMGFORMAT
 
 env_profiles_d() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<EOC
-cat <<EOF | sudo tee /etc/profile.d/$1
+cat <<EOF | tee /etc/profile.d/$1
 $2
 EOF
 
@@ -23,22 +23,22 @@ EOC
 
 env_sudoers_d() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<EOC
-cat <<EOF | sudo tee /etc/sudoers.d/$1
+cat <<EOF | tee /etc/sudoers.d/$1
 Defaults env_keep += "$2"
 
 EOF
 
-sudo chmod 0440 /etc/sudoers.d/$1
+chmod 0440 /etc/sudoers.d/$1
 
 EOC
 }
 
 touch_calibration_startup_script() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo wget -O /etc/X11/Xsession.d/xinput_calibrator_pointercal https://raw.github.com/tias/xinput_calibrator/master/scripts/xinput_calibrator_pointercal.sh
+wget -O /etc/X11/Xsession.d/xinput_calibrator_pointercal https://raw.github.com/tias/xinput_calibrator/master/scripts/xinput_calibrator_pointercal.sh
 
-cat <<EOF | sudo tee -a /etc/xdg/lxsession/LXDE/autostart
-sudo /bin/sh /etc/X11/Xsession.d/xinput_calibrator_pointercal
+cat <<EOF | tee -a /etc/xdg/lxsession/LXDE/autostart
+/bin/sh /etc/X11/Xsession.d/xinput_calibrator_pointercal
 EOF
 
 EOC
@@ -47,9 +47,9 @@ EOC
 
 firstboot_rc_local() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo mv /etc/rc.local /etc/rc.local.wait
+mv /etc/rc.local /etc/rc.local.wait
 
-cat <<EOF | sudo tee /etc/rc.local
+cat <<EOF | tee /etc/rc.local
 #!/bin/sh -e
 rm -f /etc/rc.local
 mv /etc/rc.local.wait /etc/rc.local
@@ -57,7 +57,7 @@ mv /etc/rc.local.wait /etc/rc.local
 [ -f /boot/firstboot.sh ] && /boot/firstboot.sh
 
 EOF
-sudo chmod +x /etc/rc.local
+chmod +x /etc/rc.local
 
 EOC
 }
@@ -65,23 +65,23 @@ EOC
 
 disable_spi_blacklisting() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo sed -i /etc/modprobe.d/raspi-blacklist.conf -e "s/^blacklist[[:space:]]*spi-bcm2708.*/#blacklist spi-bcm2708/"
+sed -i /etc/modprobe.d/raspi-blacklist.conf -e "s/^blacklist[[:space:]]*spi-bcm2708.*/#blacklist spi-bcm2708/"
 
 EOC
 }
 
 use_fb1_xorg_conf() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo sed -i /usr/share/X11/xorg.conf.d/99-fbturbo.conf -e "s/fb0/fb1/"
+sed -i /usr/share/X11/xorg.conf.d/99-fbturbo.conf -e "s/fb0/fb1/"
 
 EOC
 }
 
 swapaxes_calibration() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo mkdir -p /etc/X11/xorg.conf.d/
+mkdir -p /etc/X11/xorg.conf.d/
 
-cat <<EOF | sudo tee /etc/X11/xorg.conf.d/99-calibration.conf
+cat <<EOF | tee /etc/X11/xorg.conf.d/99-calibration.conf
 Section "InputClass"
         Identifier      "calibration"
         MatchProduct    "ADS7846 Touchscreen"
@@ -100,7 +100,7 @@ EOC
 
 disable_autologin() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo sed -i /etc/inittab \
+sed -i /etc/inittab \
   -e "s/^#\(.*\)#\s*RPICFG_TO_ENABLE\s*/\1/" \
   -e "/#\s*RPICFG_TO_DISABLE/d"
 
@@ -109,11 +109,11 @@ EOC
 
 udev_rules() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-cat <<EOF | sudo tee /etc/udev/rules.d/95-ads7846.rules
+cat <<EOF | tee /etc/udev/rules.d/95-ads7846.rules
 SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="ADS7846*", SYMLINK+="input/touchscreen"
 EOF
 
-cat <<EOF | sudo tee /etc/udev/rules.d/95-stmpe.rules
+cat <<EOF | tee /etc/udev/rules.d/95-stmpe.rules
 SUBSYSTEM=="input", ATTRS{name}=="stmpe-ts", ENV{DEVNAME}=="*event*", SYMLINK+="input/touchscreen" 
 EOF
 
@@ -122,7 +122,7 @@ EOC
 
 install_adapiluv_theme() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo sh -c "mkdir /usr/share/plymouth/themes/adapiluv && curl -L https://github.com/notro/adapiluv/tarball/master | tar xz --strip 1 -C /usr/share/plymouth/themes/adapiluv"
+sh -c "mkdir /usr/share/plymouth/themes/adapiluv && curl -L https://github.com/notro/adapiluv/tarball/master | tar xz --strip 1 -C /usr/share/plymouth/themes/adapiluv"
 
 EOC
 }

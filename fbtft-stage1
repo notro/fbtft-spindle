@@ -14,7 +14,7 @@ install_packages() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 apt-get update
 
-apt-get install -y \
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
 evtest \
 xinput \
 python-pip
@@ -27,10 +27,11 @@ EOC
 
 install_tslib() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-apt-get install -y tslib libts-bin
+DEBIAN_FRONTEND=noninteractive apt-get install -y tslib libts-bin
 
 # install ts_test with Quit button
-sudo wget -O /usr/bin/ts_test http://tronnes.org/downloads/ts_test && sudo chmod +x /usr/bin/ts_test
+wget -O /usr/bin/ts_test http://tronnes.org/downloads/ts_test
+chmod +x /usr/bin/ts_test
 
 EOC
 }
@@ -39,7 +40,7 @@ install_xinput_calibrator() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 cd /tmp
 wget http://adafruit-download.s3.amazonaws.com/xinput-calibrator_0.7.5-1_armhf.deb
-sudo dpkg -i -B xinput-calibrator_0.7.5-1_armhf.deb
+DEBIAN_FRONTEND=noninteractive dpkg -i -B xinput-calibrator_0.7.5-1_armhf.deb
 
 # ?? /etc/X11/xorg.conf.d/99-calibration.conf
 
@@ -50,21 +51,21 @@ install_wiringpi() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 cd /tmp
 wget https://github.com/hamishcunningham/wiringpi/raw/master/package/2.13/unstable/wiringpi_2.13_armhf.deb
-sudo dpkg -i wiringpi_2.13_armhf.deb
+DEBIAN_FRONTEND=noninteractive dpkg -i wiringpi_2.13_armhf.deb
 
 EOC
 }
 
 install_fbcp() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-apt-get install -y cmake
+DEBIAN_FRONTEND=noninteractive apt-get install -y cmake
 cd /tmp
 git clone https://github.com/tasanakorn/rpi-fbcp
 mkdir -p rpi-fbcp/build && cd rpi-fbcp/build
 cmake .. && make
-sudo install fbcp /usr/local/bin/fbcp
+install fbcp /usr/local/bin/fbcp
 
-cat <<\EOF | sudo tee /etc/init.d/fbcp
+cat <<\EOF | tee /etc/init.d/fbcp
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          fbcp
@@ -177,7 +178,7 @@ esac
 :
 EOF
 
-sudo chmod +x /etc/init.d/fbcp
+chmod +x /etc/init.d/fbcp
 
 EOC
 }
@@ -185,7 +186,8 @@ EOC
 
 update_rpi_update() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo wget https://raw.github.com/Hexxeh/rpi-update/master/rpi-update -O /usr/bin/rpi-update && sudo chmod +x /usr/bin/rpi-update
+wget https://raw.github.com/Hexxeh/rpi-update/master/rpi-update -O /usr/bin/rpi-update
+chmod +x /usr/bin/rpi-update
 
 EOC
 }
@@ -194,8 +196,8 @@ EOC
 install_rpi_source() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 
-sudo wget https://raw.githubusercontent.com/notro/rpi-source/master/rpi-source -O /usr/bin/rpi-source
-sudo chmod +x /usr/bin/rpi-source
+wget https://raw.githubusercontent.com/notro/rpi-source/master/rpi-source -O /usr/bin/rpi-source
+chmod +x /usr/bin/rpi-source
 HOME=/home/pi /usr/bin/rpi-source --tag-update
 
 EOC
@@ -205,18 +207,18 @@ EOC
 install_xstroke() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 
-sudo apt-get -y install libxft-dev libxpm-dev libxtst-dev
+DEBIAN_FRONTEND=noninteractive apt-get -y install libxft-dev libxpm-dev libxtst-dev
 wget http://mirror.egtvedt.no/avr32linux.org/twiki/pub/Main/XStroke/xstroke-0.6.tar.gz
 tar xfv xstroke-0.6.tar.gz
 cd xstroke-0.6/
 ./configure
 make
-sudo make install
+make install
 cd ..
 rm -r xstroke*
 
-sudo wget http://www.ozzmaker.com/piscreen/xstrokekill.desktop -O /usr/share/applications/xstrokekill.desktop
-sudo wget http://www.ozzmaker.com/piscreen/xstroke.desktop -O /usr/share/applications/xstroke.desktop
+wget http://www.ozzmaker.com/piscreen/xstrokekill.desktop -O /usr/share/applications/xstrokekill.desktop
+wget http://www.ozzmaker.com/piscreen/xstroke.desktop -O /usr/share/applications/xstroke.desktop
 
 EOC
 }
@@ -225,19 +227,19 @@ EOC
 install_matchbox_keyboard() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
 
-sudo apt-get install -y autoconf libtool libfakekey-dev libpng-dev
+DEBIAN_FRONTEND=noninteractive apt-get install -y autoconf libtool libfakekey-dev libpng-dev
 
 git clone https://github.com/mwilliams03/matchbox-keyboard.git
 cd matchbox-keyboard
 ./autogen.sh
 make
-sudo make install
-sudo apt-get install libmatchbox1 -y
+make install
+DEBIAN_FRONTEND=noninteractive apt-get install libmatchbox1 -y
 
 cd ..
 rm -rf matchbox-keyboard
 
-cat <<\EOF | sudo tee /usr/bin/toggle-matchbox-keyboard.sh
+cat <<\EOF | tee /usr/bin/toggle-matchbox-keyboard.sh
 #!/bin/bash
 #This script toggle the virtual keyboard
 
@@ -249,9 +251,9 @@ else
 fi
 
 EOF
-sudo chmod +x /usr/bin/toggle-matchbox-keyboard.sh
+chmod +x /usr/bin/toggle-matchbox-keyboard.sh
 
-cat <<\EOF | sudo tee /usr/local/share/applications/toggle-matchbox-keyboard.desktop
+cat <<\EOF | tee /usr/local/share/applications/toggle-matchbox-keyboard.desktop
 [Desktop Entry]
 Name=Toggle Matchbox Keyboard
 Comment=Toggle Matchbox Keyboard
@@ -271,8 +273,8 @@ EOC
 
 install_cleanup() {
   ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
-sudo rm -rf /tmp/*
-apt-get clean && apt-get autoremove 
+rm -rf /tmp/*
+DEBIAN_FRONTEND=noninteractive apt-get clean && apt-get autoremove 
 
 EOC
 }
