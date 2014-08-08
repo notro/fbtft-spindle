@@ -127,6 +127,19 @@ sh -c "mkdir /usr/share/plymouth/themes/adapiluv && curl -L https://github.com/n
 EOC
 }
 
+use_small_desktop_icons() {
+  ssh_in_to_qemu chroot /mnt sh -l -ex - <<\EOC
+export HOME=/root # silence some sudo warnings
+sudo -u pi mkdir -p /home/pi/.config/libfm
+cat <<EOF | sudo -u pi tee /home/pi/.config/libfm/libfm.conf
+[ui]
+big_icon_size=36
+
+EOF
+
+EOC
+}
+
 
 cd $WORKDIR
 
@@ -188,6 +201,8 @@ dotask disable_autologin
 dotask udev_rules
 
 dotask install_adapiluv_theme
+
+dotask use_small_desktop_icons
 
 #dotask save_space_using_hardlink
 dotask allow_starting_services
