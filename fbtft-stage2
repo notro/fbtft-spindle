@@ -38,7 +38,7 @@ touch_calibration_startup_script() {
 wget -O /etc/X11/Xsession.d/xinput_calibrator_pointercal https://raw.github.com/tias/xinput_calibrator/master/scripts/xinput_calibrator_pointercal.sh
 
 cat <<EOF | tee -a /etc/xdg/lxsession/LXDE/autostart
-/bin/sh /etc/X11/Xsession.d/xinput_calibrator_pointercal
+sudo /bin/sh /etc/X11/Xsession.d/xinput_calibrator_pointercal
 EOF
 
 EOC
